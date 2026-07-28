@@ -1,4 +1,4 @@
-# Math Benchmark Fine-Tuning Pipeline 🧮
+# Math Benchmark Fine-Tuning Pipeline 
 
 Fine-tuning Qwen3-8B on math problems where the training data is generated
 and graded entirely by symbolic computation — no LLM writes a single problem,
