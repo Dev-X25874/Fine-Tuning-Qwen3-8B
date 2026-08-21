@@ -58,3 +58,16 @@ Full breakdown of every failed attempt: [Benchmark Believers Welcome. Benchmark 
 ## Stack
 
 Tinker (LoRA SFT), GSM8K official train/test splits, Qwen3-8B (base model).
+## Pipeline hardening (Aug 2026)
+
+Patched a handful of crash-guards and dead code in the eval/generation scripts:
+ZeroDivisionError when zero examples score successfully, IndexError in a debug
+print on small eval files, an unused variable and an unused import, and a
+stray f-string with no placeholders in the synthetic-data generator.
+
+None of these touch the score-computation logic in eval_gsm8k.py -- they only
+fire on edge cases that did not occur during the run that produced the
+79.4% / 83.8% GSM8K numbers above. That said, the result has not been
+re-run against the patched code. Treat the numbers above as produced by the
+pre-patch version until someone reruns eval_gsm8k.py against the saved
+checkpoint and confirms the score is unchanged.
