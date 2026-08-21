@@ -1,33 +1,36 @@
-# Fine-Tuning Qwen3-8B on Real Math (GSM8K, Not My Own Benchmark)
+# Fine-Tuning Qwen3-8B on GSM8K
 
-I built my own math benchmark first. It was fun. It was also mine — a benchmark you build yourself is always going to be easier to beat than a real one, because you control the difficulty. So instead of shipping that as the headline result, I went and tested against something I don't control: GSM8K, a widely-used, saturated, globally-recognized math benchmark. If a model does well there, that actually means something.
+LoRA fine-tuning of Qwen3-8B on GSM8K's official training split, evaluated against GSM8K's official test split.
 
-## The result
+## Results
 
-| | GSM8K (n=500) |
+| Model | GSM8K Accuracy (n=500) |
 |---|---|
-| Base Qwen3-8B | 79.4% |
-| Fine-tuned | **83.8%** |
+| Qwen3-8B (base) | 79.4% |
+| Qwen3-8B (fine-tuned) | **83.8%** |
 
-A real 4.4 point improvement over the untouched base model, on a benchmark I didn't design and can't quietly make easier. Trained purely on GSM8K's own official training split — 7,473 problems, completely separate from the 1,319 test problems the score above is measured on, verified with zero overlap by direct comparison, not assumed.
++4.4 points over the untouched base model. The evaluation set is GSM8K's public test split — an external, widely used benchmark not designed or tunable by this project. Training used only GSM8K's official training split (7,473 problems), which was verified to have zero string-level overlap with the 1,319-problem test split before training began (see `prepare_gsm8k_train.py`).
 
-This wasn't the first attempt. It took six training runs to get here, including two that made the model *worse* than the untouched base model before I found what was actually wrong. Full story of what broke and why: [Benchmark Believers Welcome. Benchmark Skeptics, You Were Right.](https://sayak.bearblog.dev/benchmark-believers-welcome-benchmark-skeptics-you-were-right/)
+This result was reached after six training runs; two earlier runs regressed the base model's score. See [Benchmark Believers Welcome. Benchmark Skeptics, You Were Right.](https://sayak.bearblog.dev/benchmark-believers-welcome-benchmark-skeptics-you-were-right/) for the full account of what failed and why.
 
-## Why GSM8K over a self-made benchmark
+## Rationale
 
-Anyone can build a benchmark their own model does well on. That doesn't prove much. GSM8K is external, standard, and used everywhere — if a fine-tune moves the needle here, it's a real signal, not a number I engineered to look good.
+A self-constructed benchmark is a weak signal — the author controls its difficulty and can shape it, deliberately or not, toward a favorable result. GSM8K is external and standard, so an improvement here is harder to attribute to benchmark design and more likely to reflect a genuine capability change.
 
-## How the training data works
+## Training Data
 
-No LLM writes any part of this. The training data is GSM8K's own official, human-written training problems and solutions — not synthetic, not LLM-generated, not paraphrased. I only reformatted the answer marker to match a consistent output format, nothing about the actual math or reasoning content was touched.
+Training examples are GSM8K's own official, human-written problems and solutions. No LLM was used to generate, paraphrase, or rewrite any training example. The only transformation applied is reformatting the answer marker (`#### N`) to a consistent `Final answer: N` format used by the evaluation scripts; the underlying question, reasoning, and answer content is unmodified.
 
 ## Pipeline
 
 | File | Role |
 |---|---|
-| `prepare_gsm8k_train.py` | fetches GSM8K's official train split, verifies zero overlap with the test split |
-| `train_tinker.py` | LoRA fine-tuning on Tinker |
-| `eval_gsm8k.py` | evaluates against real GSM8K test problems |
+| `prepare_gsm8k_train.py` | Downloads GSM8K's official train split; verifies zero overlap with the test split before writing training data |
+| `train_tinker.py` | LoRA fine-tuning on the Tinker API |
+| `eval_gsm8k.py` | Evaluates a base or fine-tuned checkpoint against the official GSM8K test split |
+| `generate_data.py` / `verify.py` | Synthetic symbolic math data generator and independent sympy-based verifier (used in earlier iterations; not part of the GSM8K result above) |
+| `generate_word_problems.py` | Synthetic word-problem data generator with independent arithmetic verification (used in earlier iterations; not part of the GSM8K result above) |
+| `eval_benchmark.py` | Evaluates against the synthetic benchmark, not GSM8K |
 
 ## Setup
 
@@ -36,38 +39,47 @@ pip install sympy tinker torch
 export TINKER_API_KEY=your-key-here
 ```
 
-## Run order
+## Reproduction
 
 ```bash
-# 1. Prepare official GSM8K training data (verified zero overlap with test set)
+# 1. Prepare official GSM8K training data (verifies zero overlap with test split)
 python prepare_gsm8k_train.py --out data/gsm8k_train.jsonl
 
 # 2. Fine-tune
-python train_tinker.py --data data/gsm8k_train.jsonl --model Qwen/Qwen3-8B --epochs 3 --rank 32 --lr 2e-5 --batch_size 64 --out checkpoints/math_lora_v6
+python train_tinker.py \
+  --data data/gsm8k_train.jsonl \
+  --model Qwen/Qwen3-8B \
+  --epochs 3 \
+  --rank 32 \
+  --lr 2e-5 \
+  --batch_size 64 \
+  --out checkpoints/math_lora_v6
 
-# 3. Evaluate against real GSM8K
-python eval_gsm8k.py --model Qwen/Qwen3-8B --checkpoint tinker://your-checkpoint-path --n 500
+# 3. Evaluate against the official GSM8K test split
+python eval_gsm8k.py \
+  --model Qwen/Qwen3-8B \
+  --checkpoint tinker://your-checkpoint-path \
+  --n 500
 ```
 
-## What actually went wrong along the way
+## Known Failure Modes (Development History)
 
-The first fine-tune made the model *worse* at GSM8K, not better — 83.0% down to 76.0%. Training on a narrow, terse dataset had quietly retrained the model's whole reasoning style, not just its math knowledge. Two more attempts at fixing it also failed, including one where I accidentally introduced a silent mismatch between how the model was trained versus how it was evaluated. Fixing that mismatch is what finally turned a regression into a real win.
+The first fine-tuning run reduced GSM8K accuracy from 83.0% to 76.0%. Training on a narrow, terse synthetic dataset shifted the model's general reasoning style, not just its math-specific knowledge. Two subsequent attempts to fix this also failed; one introduced a silent mismatch between the training-time and evaluation-time formatting, which masked the actual cause of the regression until it was identified and corrected.
 
-Full breakdown of every failed attempt: [Benchmark Believers Welcome. Benchmark Skeptics, You Were Right.](https://sayak.bearblog.dev/benchmark-believers-welcome-benchmark-skeptics-you-were-right/)
+Full write-up: [Benchmark Believers Welcome. Benchmark Skeptics, You Were Right.](https://sayak.bearblog.dev/benchmark-believers-welcome-benchmark-skeptics-you-were-right/)
+
+## Post-Result Maintenance
+
+After the result above was produced, the following defects were identified via static analysis (`py_compile`, `pyflakes`) and fixed:
+
+- `eval_gsm8k.py`, `eval_benchmark.py`: `ZeroDivisionError` when zero examples score successfully
+- `eval_benchmark.py`: `IndexError` in a debug print when the evaluation file has fewer than two rows
+- `generate_word_problems.py`: unused variable (`remaining`) in `gen_money_shopping`
+- `verify.py`: unused import (`re`)
+- `generate_data.py`: stray `f`-string prefix with no interpolated values
+
+None of these fixes touch the score-computation path in `eval_gsm8k.py`, and none of the fixed conditions occurred during the run that produced the results reported above. However, the result has **not been re-run against the patched code**. The numbers in this README should be attributed to the pre-patch version of the pipeline until `eval_gsm8k.py` is re-run against the saved checkpoint and the score is confirmed unchanged.
 
 ## Stack
 
-Tinker (LoRA SFT), GSM8K official train/test splits, Qwen3-8B (base model).
-## Pipeline hardening (Aug 2026)
-
-Patched a handful of crash-guards and dead code in the eval/generation scripts:
-ZeroDivisionError when zero examples score successfully, IndexError in a debug
-print on small eval files, an unused variable and an unused import, and a
-stray f-string with no placeholders in the synthetic-data generator.
-
-None of these touch the score-computation logic in eval_gsm8k.py -- they only
-fire on edge cases that did not occur during the run that produced the
-79.4% / 83.8% GSM8K numbers above. That said, the result has not been
-re-run against the patched code. Treat the numbers above as produced by the
-pre-patch version until someone reruns eval_gsm8k.py against the saved
-checkpoint and confirms the score is unchanged.
+Tinker (LoRA SFT) · GSM8K official train/test splits · Qwen3-8B (base model)
