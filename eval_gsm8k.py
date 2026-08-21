@@ -121,7 +121,10 @@ def main():
                 print(f"  {i}/{len(examples)} done...")
 
     print(f"\nGSM8K results for {args.model}" + (f" + {args.checkpoint}" if args.checkpoint else " (base)"))
-    print(f"  {correct_count}/{total}  ({100*correct_count/total:.1f}%)")
+    if total > 0:
+        print(f"  {correct_count}/{total}  ({100*correct_count/total:.1f}%)")
+    else:
+        print("  0/0 -- every example errored, nothing to score")
     if errors:
         print(f"  ({errors} examples errored and were skipped)")
 
