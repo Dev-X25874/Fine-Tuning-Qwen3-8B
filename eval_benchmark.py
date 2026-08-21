@@ -92,7 +92,7 @@ def main():
         output_text = output_text.replace("<|im_end|>", "").replace("<|endoftext|>", "")
         predicted = extract_final(output_text)
         correct = answers_match(predicted, ex["final_answer"])
-        if ex is examples[0] or ex is examples[1]:
+        if any(ex is dbg_ex for dbg_ex in examples[:2]):
             print(f"\nDBG | OUTPUT: {output_text[:200]!r} | PREDICTED: {predicted!r} | EXPECTED: {ex['final_answer']!r}\n")
         return ex["domain"], correct
 
@@ -113,7 +113,10 @@ def main():
         print(f"  {d:20s} {c}/{n}  ({100*c/n:.1f}%)")
         total_correct += c
         total_n += n
-    print(f"  {'TOTAL':20s} {total_correct}/{total_n}  ({100*total_correct/total_n:.1f}%)")
+    if total_n > 0:
+        print(f"  {'TOTAL':20s} {total_correct}/{total_n}  ({100*total_correct/total_n:.1f}%)")
+    else:
+        print("  TOTAL: 0/0 -- no examples scored")
 
 
 if __name__ == "__main__":
