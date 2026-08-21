@@ -40,9 +40,7 @@ def gen_money_shopping():
     price = random.randint(2, 15)
     spent_count = random.randint(1, a - 1)
     spent_price = random.randint(1, price)
-    total = a * price
     spent = spent_count * spent_price
-    remaining = total - spent
 
     prompt = (
         f"{name} has {a} {item}, each worth ${price}. "
