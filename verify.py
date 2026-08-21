@@ -10,7 +10,6 @@ This is the gate: generate_data.py only writes an example to disk if
 verify_example() returns True.
 """
 
-import re
 import sympy as sp
 from sympy import symbols, sympify, diff, integrate, solve, simplify, Eq
 
