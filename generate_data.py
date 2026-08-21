@@ -55,7 +55,7 @@ def gen_quadratic_equation():
     steps = [
         f"Equation: {a}*x^2 + ({b})*x + ({c}) = 0",
         f"Discriminant: b^2 - 4ac = {b}^2 - 4*{a}*{c} = {disc}",
-        f"Roots via quadratic formula: x = (-b +/- sqrt(disc)) / (2a)",
+        "Roots via quadratic formula: x = (-b +/- sqrt(disc)) / (2a)",
     ]
     prompt = f"Solve for x: {a}*x^2 + ({b})*x + ({c}) = 0"
     completion = "\n".join(steps) + f"\nFinal answer: x = {roots}"
